@@ -475,6 +475,31 @@ function renderSettings() {
       <button class="btn-primary" onclick="addCategory()">Add Category</button>
     </div>` : ''}
     <div style="height:20px"></div>
+
+    <div class="section-header">Data & Backup</div>
+    <div class="settings-card" style="margin-bottom:8px">
+      <div style="font-size:13px;color:var(--text2);line-height:1.5;margin-bottom:14px">
+        Export all your expense history and budget settings as a CSV spreadsheet.
+        Save it to iCloud, email it to yourself, or open in Excel as a backup.
+      </div>
+      <button class="btn-primary" onclick="exportData()" style="margin-bottom:10px">Export All Data (CSV)</button>
+      <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px">
+        <div style="flex:1;height:0.5px;background:var(--border2)"></div>
+        <span style="font-size:11px;color:var(--text3)">or email a copy</span>
+        <div style="flex:1;height:0.5px;background:var(--border2)"></div>
+      </div>
+      <div class="form-group" style="margin-bottom:10px">
+        <label class="form-label">Email address</label>
+        <input id="export-email" class="form-input" type="email" inputmode="email"
+               placeholder="you@example.com"
+               value="${localStorage.getItem('bt_export_email') || ''}">
+      </div>
+      <button class="btn-sm save" style="width:100%;padding:13px;font-size:14px" onclick="emailExport()">
+        Send via Email App
+      </button>
+    </div>
+
+    <div style="height:20px"></div>
   </div>`;
 
   document.getElementById('screen-settings').innerHTML = html;
@@ -529,6 +554,95 @@ function addCategory() {
   addCatOpen = false;
   showToast(`"${name}" added`);
   renderSettings();
+}
+
+// ── Export ─────────────────────────────────────────────────────────────────
+function buildCSV() {
+  const catMap = {};
+  categories.forEach(c => catMap[c.id] = c);
+
+  // Collect all expense keys from localStorage
+  const allExpenses = [];
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (!key.startsWith('bt_exp_')) continue;
+    const items = JSON.parse(localStorage.getItem(key) || '[]');
+    items.forEach(e => allExpenses.push(e));
+  }
+  allExpenses.sort((a, b) => a.date < b.date ? 1 : -1);
+
+  const lines = [
+    '"Date","Category","Group","Description","Amount","Monthly Budget"'
+  ];
+  allExpenses.forEach(e => {
+    const cat = catMap[e.categoryId] || { name: 'Unknown', group: '', budget: '' };
+    const desc = (e.description || '').replace(/"/g, '""');
+    lines.push(`"${e.date}","${cat.name}","${cat.group}","${desc}","${e.amount.toFixed(2)}","${cat.budget}"`);
+  });
+
+  // Append budget summary
+  lines.push('');
+  lines.push('"--- BUDGET SETTINGS ---"');
+  lines.push('"Category","Group","Monthly Budget ($)"');
+  categories.forEach(c => lines.push(`"${c.name}","${c.group}","${c.budget.toFixed(2)}"`));
+
+  return lines.join('\n');
+}
+
+function exportData() {
+  const csv = buildCSV();
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const file = new File([blob], `budget-export-${new Date().toISOString().slice(0,10)}.csv`, { type: 'text/csv' });
+
+  // Try Web Share API first (iOS native share sheet — best UX, allows saving to Files/Mail/iCloud)
+  if (navigator.canShare && navigator.canShare({ files: [file] })) {
+    navigator.share({ files: [file], title: 'Budget Export' }).catch(() => {});
+    return;
+  }
+  // Fallback: direct download
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = file.name; a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 2000);
+  showToast('CSV downloaded');
+}
+
+function emailExport() {
+  const emailInput = document.getElementById('export-email');
+  const email = emailInput ? emailInput.value.trim() : '';
+  if (email) localStorage.setItem('bt_export_email', email);
+
+  const csv = buildCSV();
+  const date = new Date().toISOString().slice(0, 10);
+  const subject = encodeURIComponent(`Budget Export — ${date}`);
+
+  // Try Web Share with file (iOS opens native share sheet including Mail)
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const file = new File([blob], `budget-export-${date}.csv`, { type: 'text/csv' });
+
+  if (navigator.canShare && navigator.canShare({ files: [file] })) {
+    navigator.share({
+      files: [file],
+      title: `Budget Export — ${date}`,
+      text: `Budget tracker export from ${date}. Open the attached CSV in Excel or Numbers.`
+    }).catch(() => {});
+    return;
+  }
+
+  // Fallback: mailto with CSV in body (limited by email client URL length)
+  const preview = csv.split('\n').slice(0, 30).join('\n');
+  const body = encodeURIComponent(
+    `Budget Tracker Export — ${date}\n\nOpen the downloaded CSV file in Excel or Numbers.\n\n--- Preview (first 30 rows) ---\n\n${preview}`
+  );
+  const to = email ? encodeURIComponent(email) : '';
+  window.location.href = `mailto:${to}?subject=${subject}&body=${body}`;
+
+  // Also trigger download so they have the file to attach
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = file.name; a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 2000);
+  showToast('Opening email app…');
 }
 
 // ── Main render ────────────────────────────────────────────────────────────
