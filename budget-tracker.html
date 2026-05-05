@@ -1,0 +1,545 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Budget">
+<meta name="theme-color" content="#0B0F1A">
+<title>Budget Tracker</title>
+<style>
+  :root {
+    --bg: #0B0F1A;
+    --surface: #141824;
+    --surface2: #1C2235;
+    --border: rgba(255,255,255,0.07);
+    --border2: rgba(255,255,255,0.14);
+    --text: #F1F5F9;
+    --text2: #94A3B8;
+    --text3: #64748B;
+    --green: #22C55E;
+    --green-dim: rgba(34,197,94,0.15);
+    --amber: #F59E0B;
+    --amber-dim: rgba(245,158,11,0.15);
+    --red: #EF4444;
+    --red-dim: rgba(239,68,68,0.15);
+    --blue: #3B82F6;
+    --blue-dim: rgba(59,130,246,0.12);
+    --accent: #6366F1;
+    --accent-dim: rgba(99,102,241,0.15);
+    --tab-h: 68px;
+    --safe-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  html, body { height: 100%; background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', sans-serif; overscroll-behavior: none; }
+  #app { display: flex; flex-direction: column; height: 100%; max-width: 430px; margin: 0 auto; position: relative; }
+  .screen { flex: 1; overflow-y: auto; overflow-x: hidden; padding-bottom: calc(var(--tab-h) + var(--safe-bottom) + 16px); }
+  .screen::-webkit-scrollbar { display: none; }
+
+  /* ── Header ── */
+  .header { padding: 54px 20px 0; background: var(--bg); position: sticky; top: 0; z-index: 10; }
+  .header-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
+  .header-title { font-size: 28px; font-weight: 700; letter-spacing: -0.5px; }
+  .month-nav { display: flex; align-items: center; gap: 4px; }
+  .month-nav button { width: 36px; height: 36px; border-radius: 50%; border: none; background: var(--surface2); color: var(--text); font-size: 16px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+  .month-nav .month-label { font-size: 14px; font-weight: 500; color: var(--text2); min-width: 120px; text-align: center; }
+
+  /* ── Summary Cards ── */
+  .summary-row { display: grid; grid-template-columns: repeat(3,1fr); gap: 10px; padding: 0 20px 20px; }
+  .sum-card { background: var(--surface); border-radius: 14px; padding: 14px 12px; }
+  .sum-label { font-size: 10px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text3); margin-bottom: 6px; }
+  .sum-val { font-size: 18px; font-weight: 700; letter-spacing: -0.3px; }
+  .sum-val.green { color: var(--green); }
+  .sum-val.red { color: var(--red); }
+
+  /* ── Section ── */
+  .section-header { padding: 0 20px 10px; font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text3); }
+
+  /* ── Category Rows ── */
+  .cat-list { padding: 0 16px; display: flex; flex-direction: column; gap: 8px; margin-bottom: 8px; }
+  .cat-card { background: var(--surface); border-radius: 14px; padding: 14px 16px; border: 0.5px solid var(--border); }
+  .cat-card-top { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 10px; }
+  .cat-card-name { font-size: 14px; font-weight: 600; color: var(--text); }
+  .cat-card-group { font-size: 10px; color: var(--text3); margin-top: 2px; }
+  .cat-card-right { text-align: right; }
+  .cat-spent { font-size: 16px; font-weight: 700; }
+  .cat-budget { font-size: 11px; color: var(--text2); margin-top: 1px; }
+  .cat-remaining { font-size: 11px; margin-top: 1px; }
+  .remaining-ok { color: var(--green); }
+  .remaining-warn { color: var(--amber); }
+  .remaining-over { color: var(--red); }
+  .progress-bg { height: 4px; background: var(--surface2); border-radius: 99px; overflow: hidden; }
+  .progress-fill { height: 100%; border-radius: 99px; transition: width 0.4s cubic-bezier(.4,0,.2,1); }
+  .p-ok { background: var(--green); }
+  .p-warn { background: var(--amber); }
+  .p-over { background: var(--red); }
+
+  /* ── Tabs ── */
+  .tab-bar { position: fixed; bottom: 0; left: 50%; transform: translateX(-50%); width: 100%; max-width: 430px; height: calc(var(--tab-h) + var(--safe-bottom)); background: rgba(11,15,26,0.92); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border-top: 0.5px solid var(--border2); display: flex; align-items: flex-start; padding-top: 8px; z-index: 100; }
+  .tab { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; cursor: pointer; padding: 6px 0; border: none; background: none; color: var(--text3); transition: color 0.15s; }
+  .tab.active { color: var(--accent); }
+  .tab svg { width: 22px; height: 22px; }
+  .tab span { font-size: 10px; font-weight: 500; letter-spacing: 0.03em; }
+
+  /* ── Add Expense Screen ── */
+  .add-screen { padding: 54px 20px 0; }
+  .screen-title { font-size: 28px; font-weight: 700; letter-spacing: -0.5px; margin-bottom: 28px; }
+  .form-group { margin-bottom: 16px; }
+  .form-label { font-size: 12px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--text3); margin-bottom: 8px; display: block; }
+  .form-input { width: 100%; background: var(--surface); border: 0.5px solid var(--border2); border-radius: 12px; padding: 14px 16px; font-size: 16px; color: var(--text); font-family: inherit; outline: none; transition: border-color 0.15s; }
+  .form-input:focus { border-color: var(--accent); }
+  .form-input::placeholder { color: var(--text3); }
+  .amount-input { font-size: 28px; font-weight: 700; padding: 18px 16px; }
+  select.form-input { -webkit-appearance: none; cursor: pointer; }
+  .btn-primary { width: 100%; padding: 17px; background: var(--accent); color: #fff; border: none; border-radius: 14px; font-size: 16px; font-weight: 700; cursor: pointer; letter-spacing: -0.2px; margin-top: 8px; transition: opacity 0.15s, transform 0.1s; }
+  .btn-primary:active { transform: scale(0.98); opacity: 0.9; }
+  .btn-danger { background: var(--red-dim); color: var(--red); border: 0.5px solid rgba(239,68,68,0.25); }
+
+  /* ── Transaction List ── */
+  .txn-list { padding: 0 16px; display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px; }
+  .txn-item { background: var(--surface); border-radius: 12px; padding: 13px 16px; display: flex; align-items: center; justify-content: space-between; border: 0.5px solid var(--border); }
+  .txn-left .txn-name { font-size: 13px; font-weight: 600; }
+  .txn-left .txn-meta { font-size: 11px; color: var(--text3); margin-top: 2px; }
+  .txn-right { display: flex; align-items: center; gap: 10px; }
+  .txn-amount { font-size: 15px; font-weight: 700; }
+  .txn-del { width: 28px; height: 28px; border-radius: 50%; background: var(--red-dim); border: none; color: var(--red); font-size: 14px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+  .empty-state { text-align: center; padding: 40px 20px; color: var(--text3); font-size: 14px; }
+
+  /* ── Settings Screen ── */
+  .settings-screen { padding: 54px 20px 0; }
+  .settings-list { display: flex; flex-direction: column; gap: 8px; }
+  .settings-card { background: var(--surface); border-radius: 14px; padding: 16px; border: 0.5px solid var(--border); }
+  .settings-card-header { display: flex; align-items: center; justify-content: space-between; }
+  .settings-card-name { font-size: 15px; font-weight: 600; }
+  .settings-card-group { font-size: 11px; color: var(--text3); margin-top: 2px; }
+  .settings-card-body { margin-top: 14px; display: none; flex-direction: column; gap: 10px; }
+  .settings-card-body.open { display: flex; }
+  .settings-card-body .form-input { padding: 12px 14px; font-size: 15px; }
+  .edit-row { display: flex; gap: 8px; }
+  .edit-row .form-input { flex: 1; }
+  .btn-sm { padding: 10px 16px; background: var(--surface2); color: var(--text); border: 0.5px solid var(--border2); border-radius: 10px; font-size: 13px; font-weight: 600; cursor: pointer; font-family: inherit; }
+  .btn-sm.save { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .btn-sm.del { background: var(--red-dim); color: var(--red); border-color: rgba(239,68,68,0.2); }
+  .chevron { font-size: 16px; color: var(--text3); transition: transform 0.2s; }
+  .chevron.open { transform: rotate(180deg); }
+  .add-cat-form { background: var(--surface); border-radius: 14px; padding: 18px; border: 1px solid var(--accent); margin-top: 4px; display: flex; flex-direction: column; gap: 12px; }
+  .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .tag { display: inline-block; font-size: 10px; font-weight: 600; padding: 3px 8px; border-radius: 6px; letter-spacing: 0.04em; text-transform: uppercase; }
+  .tag.fixed { background: var(--blue-dim); color: var(--blue); }
+  .tag.variable { background: var(--green-dim); color: var(--green); }
+  .tag.business { background: var(--accent-dim); color: var(--accent); }
+
+  /* ── Toast ── */
+  .toast { position: fixed; top: 60px; left: 50%; transform: translateX(-50%) translateY(-80px); background: #1E2535; color: var(--text); padding: 12px 20px; border-radius: 12px; font-size: 14px; font-weight: 500; border: 0.5px solid var(--border2); z-index: 999; transition: transform 0.3s cubic-bezier(.4,0,.2,1); white-space: nowrap; }
+  .toast.show { transform: translateX(-50%) translateY(0); }
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="screen-dashboard" class="screen"></div>
+  <div id="screen-add" class="screen" style="display:none"></div>
+  <div id="screen-history" class="screen" style="display:none"></div>
+  <div id="screen-settings" class="screen" style="display:none"></div>
+
+  <nav class="tab-bar">
+    <button class="tab active" data-tab="dashboard" onclick="switchTab('dashboard')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+      <span>Dashboard</span>
+    </button>
+    <button class="tab" data-tab="add" onclick="switchTab('add')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+      <span>Add</span>
+    </button>
+    <button class="tab" data-tab="history" onclick="switchTab('history')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8v4l3 3"/><circle cx="12" cy="12" r="9"/></svg>
+      <span>History</span>
+    </button>
+    <button class="tab" data-tab="settings" onclick="switchTab('settings')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+      <span>Budget</span>
+    </button>
+  </nav>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const DEFAULT_CATEGORIES = [
+  { id: 'rent',      name: 'Rent',                group: 'Fixed',    budget: 2000 },
+  { id: 'car',       name: 'Car Insurance + 407', group: 'Fixed',    budget: 300 },
+  { id: 'phone',     name: 'Phone Plan',          group: 'Fixed',    budget: 180 },
+  { id: 'gym',       name: 'Gym',                 group: 'Fixed',    budget: 120 },
+  { id: 'subs',      name: 'Subscriptions',       group: 'Fixed',    budget: 22.58 },
+  { id: 'fhsa',      name: 'FHSA Contribution',   group: 'Fixed',    budget: 665 },
+  { id: 'groceries', name: 'Groceries',           group: 'Variable', budget: 300 },
+  { id: 'gas',       name: 'Gas',                 group: 'Variable', budget: 360 },
+  { id: 'food',      name: 'Food & Drinks',       group: 'Variable', budget: 150 },
+  { id: 'dates',     name: 'Dates',               group: 'Variable', budget: 200 },
+  { id: 'flowers',   name: 'Flowers',             group: 'Variable', budget: 25 },
+  { id: 'haircut',   name: 'Haircut',             group: 'Variable', budget: 85 },
+  { id: 'misc',      name: 'Random / Misc',       group: 'Variable', budget: 150 },
+  { id: 'hcp',       name: 'High Clean Pro',      group: 'Business', budget: 100 },
+  { id: 'visionary', name: 'Visionary',           group: 'Business', budget: 100 },
+  { id: 'blazed',    name: 'Blazed (wind-down)',  group: 'Business', budget: 50 },
+];
+
+// ── State ──────────────────────────────────────────────────────────────────
+let categories = JSON.parse(localStorage.getItem('bt_categories') || 'null') || DEFAULT_CATEGORIES;
+let currentTab = 'dashboard';
+let viewYear = new Date().getFullYear();
+let viewMonth = new Date().getMonth();
+let addCatOpen = false;
+
+function expKey(y, m) { return `bt_exp_${y}_${String(m).padStart(2,'0')}`; }
+function getExpenses(y, m) { return JSON.parse(localStorage.getItem(expKey(y, m)) || '[]'); }
+function saveExpenses(y, m, list) { localStorage.setItem(expKey(y, m), JSON.stringify(list)); }
+function saveCategories() { localStorage.setItem('bt_categories', JSON.stringify(categories)); }
+
+function fmt(v) {
+  const abs = Math.abs(v);
+  return '$' + abs.toLocaleString('en-CA', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+function monthLabel(y, m) {
+  return new Date(y, m, 1).toLocaleString('en-CA', { month: 'long', year: 'numeric' });
+}
+
+// ── Toast ──────────────────────────────────────────────────────────────────
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2200);
+}
+
+// ── Tab navigation ─────────────────────────────────────────────────────────
+function switchTab(tab) {
+  currentTab = tab;
+  document.querySelectorAll('.screen').forEach(s => s.style.display = 'none');
+  document.getElementById('screen-' + tab).style.display = 'block';
+  document.querySelectorAll('.tab').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
+  render();
+}
+
+// ── Render Dashboard ──────────────────────────────────────────────────────
+function renderDashboard() {
+  const expenses = getExpenses(viewYear, viewMonth);
+  const spent = {};
+  categories.forEach(c => spent[c.id] = 0);
+  expenses.forEach(e => { if (spent[e.categoryId] !== undefined) spent[e.categoryId] += e.amount; });
+
+  const totalBudget = categories.reduce((s, c) => s + c.budget, 0);
+  const totalSpent  = Object.values(spent).reduce((a, b) => a + b, 0);
+  const totalLeft   = totalBudget - totalSpent;
+
+  const groups = ['Fixed', 'Variable', 'Business'];
+
+  let html = `
+    <div class="header">
+      <div class="header-top">
+        <div class="header-title">Budget</div>
+        <div class="month-nav">
+          <button onclick="navMonth(-1)">‹</button>
+          <span class="month-label">${monthLabel(viewYear, viewMonth)}</span>
+          <button onclick="navMonth(1)">›</button>
+        </div>
+      </div>
+    </div>
+    <div class="summary-row">
+      <div class="sum-card">
+        <div class="sum-label">Budget</div>
+        <div class="sum-val">${fmt(totalBudget)}</div>
+      </div>
+      <div class="sum-card">
+        <div class="sum-label">Spent</div>
+        <div class="sum-val ${totalSpent > totalBudget ? 'red' : ''}">${fmt(totalSpent)}</div>
+      </div>
+      <div class="sum-card">
+        <div class="sum-label">Left</div>
+        <div class="sum-val ${totalLeft < 0 ? 'red' : 'green'}">${totalLeft < 0 ? '-' : ''}${fmt(Math.abs(totalLeft))}</div>
+      </div>
+    </div>`;
+
+  groups.forEach(group => {
+    const cats = categories.filter(c => c.group === group);
+    if (!cats.length) return;
+    html += `<div class="section-header">${group}</div><div class="cat-list">`;
+    cats.forEach(c => {
+      const s = spent[c.id] || 0;
+      const left = c.budget - s;
+      const pct = Math.min((s / c.budget) * 100, 100);
+      const pClass = pct >= 100 ? 'p-over' : pct >= 75 ? 'p-warn' : 'p-ok';
+      const rClass = left < 0 ? 'remaining-over' : pct >= 75 ? 'remaining-warn' : 'remaining-ok';
+      const leftLabel = left < 0 ? `-${fmt(Math.abs(left))} over` : `${fmt(left)} left`;
+      html += `
+        <div class="cat-card">
+          <div class="cat-card-top">
+            <div>
+              <div class="cat-card-name">${c.name}</div>
+              <div class="cat-card-group">${c.group}</div>
+            </div>
+            <div class="cat-card-right">
+              <div class="cat-spent">${fmt(s)}</div>
+              <div class="cat-budget">of ${fmt(c.budget)}</div>
+              <div class="cat-remaining ${rClass}">${leftLabel}</div>
+            </div>
+          </div>
+          <div class="progress-bg"><div class="progress-fill ${pClass}" style="width:${pct}%"></div></div>
+        </div>`;
+    });
+    html += `</div>`;
+  });
+
+  document.getElementById('screen-dashboard').innerHTML = html;
+}
+
+function navMonth(dir) {
+  viewMonth += dir;
+  if (viewMonth < 0) { viewMonth = 11; viewYear--; }
+  if (viewMonth > 11) { viewMonth = 0; viewYear++; }
+  renderDashboard();
+}
+
+// ── Render Add Expense ─────────────────────────────────────────────────────
+function renderAdd() {
+  const today = new Date().toISOString().slice(0, 10);
+  const catOptions = categories.map(c => `<option value="${c.id}">${c.name} (${c.group})</option>`).join('');
+  document.getElementById('screen-add').innerHTML = `
+    <div class="add-screen">
+      <div class="screen-title">Log Expense</div>
+      <div class="form-group">
+        <label class="form-label">Amount</label>
+        <input id="f-amount" class="form-input amount-input" type="number" inputmode="decimal" placeholder="0.00" step="0.01" min="0">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Category</label>
+        <select id="f-cat" class="form-input">${catOptions}</select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Description (optional)</label>
+        <input id="f-desc" class="form-input" type="text" placeholder="e.g. Costco run">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Date</label>
+        <input id="f-date" class="form-input" type="date" value="${today}">
+      </div>
+      <button class="btn-primary" onclick="submitExpense()">Save Expense</button>
+    </div>`;
+  document.getElementById('f-amount').focus();
+}
+
+function submitExpense() {
+  const amount = parseFloat(document.getElementById('f-amount').value);
+  const categoryId = document.getElementById('f-cat').value;
+  const description = document.getElementById('f-desc').value.trim();
+  const date = document.getElementById('f-date').value;
+  if (!amount || amount <= 0) { showToast('Enter a valid amount'); return; }
+  if (!date) { showToast('Pick a date'); return; }
+
+  const d = new Date(date + 'T12:00:00');
+  const ey = d.getFullYear(), em = d.getMonth();
+  const expenses = getExpenses(ey, em);
+  expenses.unshift({ id: Date.now(), categoryId, amount, description, date });
+  saveExpenses(ey, em, expenses);
+  showToast('Expense saved');
+  renderAdd();
+}
+
+// ── Render History ─────────────────────────────────────────────────────────
+function renderHistory() {
+  const expenses = getExpenses(viewYear, viewMonth);
+  const catMap = {};
+  categories.forEach(c => catMap[c.id] = c);
+
+  let txnHtml = '';
+  if (!expenses.length) {
+    txnHtml = `<div class="empty-state">No expenses logged for ${monthLabel(viewYear, viewMonth)}</div>`;
+  } else {
+    txnHtml = `<div class="txn-list">` + expenses.map(e => {
+      const cat = catMap[e.categoryId];
+      const name = cat ? cat.name : 'Unknown';
+      return `
+        <div class="txn-item">
+          <div class="txn-left">
+            <div class="txn-name">${name}</div>
+            <div class="txn-meta">${e.description || '—'} · ${e.date}</div>
+          </div>
+          <div class="txn-right">
+            <span class="txn-amount">${fmt(e.amount)}</span>
+            <button class="txn-del" onclick="deleteExpense(${e.id})">×</button>
+          </div>
+        </div>`;
+    }).join('') + `</div>`;
+  }
+
+  document.getElementById('screen-history').innerHTML = `
+    <div class="header">
+      <div class="header-top">
+        <div class="header-title">History</div>
+        <div class="month-nav">
+          <button onclick="navMonthHistory(-1)">‹</button>
+          <span class="month-label">${monthLabel(viewYear, viewMonth)}</span>
+          <button onclick="navMonthHistory(1)">›</button>
+        </div>
+      </div>
+    </div>
+    <div style="height:8px"></div>
+    ${txnHtml}`;
+}
+
+function navMonthHistory(dir) {
+  navMonth(dir);
+  renderHistory();
+}
+
+function deleteExpense(id) {
+  const expenses = getExpenses(viewYear, viewMonth);
+  const updated = expenses.filter(e => e.id !== id);
+  saveExpenses(viewYear, viewMonth, updated);
+  showToast('Deleted');
+  renderHistory();
+}
+
+// ── Render Settings ────────────────────────────────────────────────────────
+function renderSettings() {
+  const groups = ['Fixed', 'Variable', 'Business'];
+  let html = `<div class="settings-screen">
+    <div class="screen-title">Manage Budget</div>`;
+
+  groups.forEach(group => {
+    const cats = categories.filter(c => c.group === group);
+    const tagClass = group.toLowerCase();
+    html += `<div class="section-header">${group}</div><div class="settings-list" style="margin-bottom:16px">`;
+    cats.forEach(c => {
+      html += `
+        <div class="settings-card" id="sc-${c.id}">
+          <div class="settings-card-header" onclick="toggleEdit('${c.id}')">
+            <div>
+              <div class="settings-card-name">${c.name}</div>
+              <div class="settings-card-group">${fmt(c.budget)}/mo · <span class="tag ${tagClass}">${group}</span></div>
+            </div>
+            <span class="chevron" id="chev-${c.id}">›</span>
+          </div>
+          <div class="settings-card-body" id="sb-${c.id}">
+            <div class="form-group" style="margin:0">
+              <label class="form-label">Name</label>
+              <input class="form-input" id="en-${c.id}" value="${c.name}" type="text" placeholder="Category name">
+            </div>
+            <div class="form-row">
+              <div class="form-group" style="margin:0">
+                <label class="form-label">Monthly Budget ($)</label>
+                <input class="form-input" id="eb-${c.id}" value="${c.budget}" type="number" step="0.01" min="0">
+              </div>
+              <div class="form-group" style="margin:0">
+                <label class="form-label">Group</label>
+                <select class="form-input" id="eg-${c.id}">
+                  <option ${c.group==='Fixed'?'selected':''}>Fixed</option>
+                  <option ${c.group==='Variable'?'selected':''}>Variable</option>
+                  <option ${c.group==='Business'?'selected':''}>Business</option>
+                </select>
+              </div>
+            </div>
+            <div class="edit-row">
+              <button class="btn-sm save" onclick="saveCategory('${c.id}')">Save</button>
+              <button class="btn-sm del" onclick="deleteCategory('${c.id}')">Delete</button>
+            </div>
+          </div>
+        </div>`;
+    });
+    html += `</div>`;
+  });
+
+  html += `
+    <div class="section-header">Add New Category</div>
+    <button class="btn-primary" style="margin-bottom:12px" onclick="toggleAddCat()">${addCatOpen ? 'Cancel' : '+ New Category'}</button>
+    ${addCatOpen ? `
+    <div class="add-cat-form">
+      <div class="form-group" style="margin:0">
+        <label class="form-label">Category Name</label>
+        <input id="nc-name" class="form-input" type="text" placeholder="e.g. Entertainment">
+      </div>
+      <div class="form-row">
+        <div class="form-group" style="margin:0">
+          <label class="form-label">Monthly Budget ($)</label>
+          <input id="nc-budget" class="form-input" type="number" step="0.01" min="0" placeholder="0.00">
+        </div>
+        <div class="form-group" style="margin:0">
+          <label class="form-label">Group</label>
+          <select id="nc-group" class="form-input">
+            <option>Fixed</option>
+            <option selected>Variable</option>
+            <option>Business</option>
+          </select>
+        </div>
+      </div>
+      <button class="btn-primary" onclick="addCategory()">Add Category</button>
+    </div>` : ''}
+    <div style="height:20px"></div>
+  </div>`;
+
+  document.getElementById('screen-settings').innerHTML = html;
+}
+
+function toggleEdit(id) {
+  const body = document.getElementById('sb-' + id);
+  const chev = document.getElementById('chev-' + id);
+  const isOpen = body.classList.toggle('open');
+  chev.classList.toggle('open', isOpen);
+  chev.textContent = isOpen ? '›' : '›';
+  if (isOpen) chev.style.transform = 'rotate(90deg)';
+  else chev.style.transform = '';
+}
+
+function saveCategory(id) {
+  const name = document.getElementById('en-' + id).value.trim();
+  const budget = parseFloat(document.getElementById('eb-' + id).value);
+  const group = document.getElementById('eg-' + id).value;
+  if (!name) { showToast('Enter a name'); return; }
+  if (isNaN(budget) || budget < 0) { showToast('Enter a valid budget'); return; }
+  const idx = categories.findIndex(c => c.id === id);
+  if (idx > -1) { categories[idx] = { ...categories[idx], name, budget, group }; }
+  saveCategories();
+  showToast('Saved');
+  renderSettings();
+}
+
+function deleteCategory(id) {
+  if (!confirm('Delete this category? Its expenses will remain in history.')) return;
+  categories = categories.filter(c => c.id !== id);
+  saveCategories();
+  showToast('Category removed');
+  renderSettings();
+}
+
+function toggleAddCat() {
+  addCatOpen = !addCatOpen;
+  renderSettings();
+  if (addCatOpen) setTimeout(() => document.getElementById('nc-name')?.focus(), 100);
+}
+
+function addCategory() {
+  const name = document.getElementById('nc-name').value.trim();
+  const budget = parseFloat(document.getElementById('nc-budget').value);
+  const group = document.getElementById('nc-group').value;
+  if (!name) { showToast('Enter a category name'); return; }
+  if (isNaN(budget) || budget < 0) { showToast('Enter a valid budget'); return; }
+  const id = 'cat_' + Date.now();
+  categories.push({ id, name, budget, group });
+  saveCategories();
+  addCatOpen = false;
+  showToast(`"${name}" added`);
+  renderSettings();
+}
+
+// ── Main render ────────────────────────────────────────────────────────────
+function render() {
+  if (currentTab === 'dashboard') renderDashboard();
+  else if (currentTab === 'add') renderAdd();
+  else if (currentTab === 'history') renderHistory();
+  else if (currentTab === 'settings') renderSettings();
+}
+
+render();
+</script>
+</body>
+</html>
